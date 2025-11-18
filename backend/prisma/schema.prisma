@@ -1,0 +1,130 @@
+// This is your Prisma schema file
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  prompts            Prompt[]
+  evaluationDatasets EvaluationDataset[]
+  experiments        Experiment[]
+
+  @@map("projects")
+}
+
+model Prompt {
+  id          String   @id @default(cuid())
+  projectId   String
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project  Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  versions PromptVersion[]
+
+  @@map("prompts")
+}
+
+model PromptVersion {
+  id           String   @id @default(cuid())
+  promptId     String
+  versionTag   String
+  templateText String   @db.Text
+  createdAt    DateTime @default(now())
+
+  prompt         Prompt           @relation(fields: [promptId], references: [id], onDelete: Cascade)
+  experimentRuns ExperimentRun[]
+
+  @@unique([promptId, versionTag])
+  @@map("prompt_versions")
+}
+
+model EvaluationDataset {
+  id          String   @id @default(cuid())
+  projectId   String
+  name        String
+  description String?
+  itemCount   Int      @default(0)
+  specJson    String?  @db.Text // JSON schema or description of dataset structure
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project         Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  items           EvaluationItem[]
+  experimentRuns  ExperimentRun[]
+
+  @@map("evaluation_datasets")
+}
+
+model EvaluationItem {
+  id                 String  @id @default(cuid())
+  datasetId          String
+  inputJson          String  @db.Text // JSON input data
+  expectedOutputJson String? @db.Text // Optional expected output
+  tagsJson           String? @db.Text // Optional tags/metadata
+
+  dataset              EvaluationDataset       @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  experimentResultItems ExperimentResultItem[]
+
+  @@map("evaluation_items")
+}
+
+model Experiment {
+  id          String   @id @default(cuid())
+  projectId   String
+  name        String
+  description String?
+  model       String   // e.g., "gpt-4", "gpt-3.5-turbo"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  runs    ExperimentRun[]
+
+  @@map("experiments")
+}
+
+model ExperimentRun {
+  id               String    @id @default(cuid())
+  experimentId     String
+  promptVersionId  String
+  datasetId        String
+  status           String    @default("pending") // pending, running, completed, failed
+  startedAt        DateTime?
+  finishedAt       DateTime?
+  metricsJson      String?   @db.Text // Aggregated metrics
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  experiment     Experiment              @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+  promptVersion  PromptVersion           @relation(fields: [promptVersionId], references: [id], onDelete: Cascade)
+  dataset        EvaluationDataset       @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  resultItems    ExperimentResultItem[]
+
+  @@map("experiment_runs")
+}
+
+model ExperimentResultItem {
+  id               String  @id @default(cuid())
+  runId            String
+  evaluationItemId String
+  outputJson       String  @db.Text // LLM output
+  scoreJson        String? @db.Text // Scoring results
+
+  run            ExperimentRun  @relation(fields: [runId], references: [id], onDelete: Cascade)
+  evaluationItem EvaluationItem @relation(fields: [evaluationItemId], references: [id], onDelete: Cascade)
+
+  @@map("experiment_result_items")
+}

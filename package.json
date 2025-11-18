@@ -1,0 +1,23 @@
+{
+  "name": "prompt-library-experiment-hub",
+  "version": "1.0.0",
+  "description": "Manage prompts, versions, and experiments across many projects",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev:backend": "npm run dev --workspace=backend",
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "dev:worker": "npm run dev:worker --workspace=backend",
+    "build": "npm run build --workspaces",
+    "db:migrate": "npm run db:migrate --workspace=backend",
+    "db:generate": "npm run db:generate --workspace=backend",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down"
+  },
+  "keywords": ["prompt-engineering", "llm", "experiments", "evaluation"],
+  "author": "",
+  "license": "MIT"
+}
