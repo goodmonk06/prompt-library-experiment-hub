@@ -1,6 +1,7 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import prisma from './lib/prisma';
+import { errorHandler } from './lib/error-handler';
 import projectRoutes from './routes/projects';
 import promptRoutes from './routes/prompts';
 import datasetRoutes from './routes/datasets';
@@ -16,6 +17,9 @@ const server = Fastify({
 
 async function start() {
   try {
+    // Register error handler
+    server.setErrorHandler(errorHandler);
+
     // Register CORS
     await server.register(cors, {
       origin: process.env.CORS_ORIGIN || 'http://localhost:3000',

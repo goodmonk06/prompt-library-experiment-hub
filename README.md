@@ -1,549 +1,524 @@
 # Prompt Library & Experiment Hub
 
-A comprehensive platform for managing prompts, versions, and experiments across multiple LLM projects. Run evaluations, compare results, and iterate on your prompts with confidence.
+A production-ready platform for managing prompts, versions, and experiments across multiple LLM projects. Version control your prompts, run systematic evaluations, and iterate with confidence.
 
-## Features
+## Overview
 
-- **Prompt Management**: Version-controlled prompt templates with support for variable substitution
-- **Dataset Management**: Upload and manage evaluation datasets in JSONL format
-- **Experiment Runner**: Automated testing of prompts against datasets using OpenAI models
-- **Scoring System**: Automatic similarity metrics and optional LLM-as-judge evaluation
-- **Dashboard UI**: Clean Next.js interface for managing all aspects of your experiments
-- **Queue System**: BullMQ-powered background job processing for scalable experiment runs
+This platform solves the problem of prompt management and evaluation at scale. Instead of scattering prompts across codebases and manually testing changes, you get:
+
+- **Centralized prompt management** with version control
+- **Systematic evaluation** using datasets and metrics
+- **Automated experiment runs** via background workers
+- **Clean dashboard** for tracking results and comparing versions
+
+Built for teams working on multiple LLM-powered products who need a single source of truth for their prompts.
 
 ## Tech Stack
 
 - **Backend**: Fastify + TypeScript
 - **Database**: PostgreSQL with Prisma ORM
-- **Queue**: BullMQ + Redis
+- **Queue**: BullMQ + Redis (for background experiment execution)
 - **LLM**: OpenAI API
 - **Frontend**: Next.js 14 + TypeScript + Tailwind CSS
+- **Testing**: Vitest
+- **Infrastructure**: Docker + Docker Compose
 
-## Project Structure
+## Domain Model
 
 ```
-prompt-library-experiment-hub/
-├── backend/
-│   ├── prisma/
-│   │   └── schema.prisma          # Database schema
-│   ├── src/
-│   │   ├── routes/                # API routes
-│   │   │   ├── projects.ts
-│   │   │   ├── prompts.ts
-│   │   │   ├── datasets.ts
-│   │   │   └── experiments.ts
-│   │   ├── services/              # Business logic
-│   │   │   ├── openai-service.ts
-│   │   │   └── scoring-service.ts
-│   │   ├── workers/               # Background workers
-│   │   │   └── experiment-worker.ts
-│   │   ├── lib/                   # Utilities
-│   │   │   ├── prisma.ts
-│   │   │   └── queue.ts
-│   │   └── index.ts               # Server entry point
-│   └── package.json
-├── frontend/
-│   ├── src/
-│   │   ├── app/                   # Next.js app directory
-│   │   │   ├── projects/          # Project pages
-│   │   │   │   └── [id]/
-│   │   │   │       ├── prompts/
-│   │   │   │       ├── datasets/
-│   │   │   │       └── experiments/
-│   │   │   └── layout.tsx
-│   │   ├── components/            # React components
-│   │   └── lib/
-│   │       └── api.ts             # API client
-│   └── package.json
-├── docker-compose.yml             # PostgreSQL + Redis
-└── package.json                   # Workspace root
+Project (e.g., "Customer Support Bot")
+├── Prompts (e.g., "Support Response Generator")
+│   └── PromptVersions (e.g., "v1.0", "v2.0")
+├── EvaluationDatasets (e.g., "Common Questions")
+│   └── EvaluationItems (input/expected pairs)
+└── Experiments (e.g., "GPT-3.5 Baseline")
+    └── ExperimentRuns (tracks execution and results)
+        └── ExperimentResultItems (individual outputs + scores)
 ```
 
-## Quick Start
+**Key relationships:**
+- Projects organize all resources
+- Prompts have multiple versions for A/B testing
+- Datasets contain test cases for evaluation
+- Experiments link prompt versions to datasets and track results
 
-### Prerequisites
+## Getting Started
+
+### Requirements
 
 - Node.js 18+
 - Docker & Docker Compose
 - OpenAI API key
 
-### Installation
+### Quick Start (Recommended)
 
-1. **Clone the repository**
+1. **Clone and install**
    ```bash
    git clone <repository-url>
    cd prompt-library-experiment-hub
-   ```
-
-2. **Install dependencies**
-   ```bash
    npm install
    ```
 
-3. **Start PostgreSQL and Redis**
+2. **Set up environment variables**
+   ```bash
+   cp .env.example .env
+   # Edit .env and add your OPENAI_API_KEY
+
+   cp backend/.env.example backend/.env
+   cp frontend/.env.local.example frontend/.env.local
+   ```
+
+3. **Start infrastructure** (PostgreSQL + Redis)
    ```bash
    npm run docker:up
    ```
 
-4. **Set up environment variables**
-
-   Backend (`backend/.env`):
-   ```env
-   DATABASE_URL="postgresql://promptuser:promptpass@localhost:5432/prompthub?schema=public"
-   REDIS_HOST="localhost"
-   REDIS_PORT=6379
-   OPENAI_API_KEY="your-openai-api-key-here"
-   PORT=3001
-   ```
-
-   Frontend (`frontend/.env.local`):
-   ```env
-   NEXT_PUBLIC_API_URL=http://localhost:3001
-   ```
-
-5. **Run database migrations**
+4. **Set up database**
    ```bash
-   npm run db:migrate
-   npm run db:generate
+   npm run db:push
+   npm run db:seed
    ```
 
-6. **Start the services**
+5. **Start development servers**
 
    In separate terminals:
    ```bash
    # Terminal 1: Backend API
    npm run dev:backend
 
-   # Terminal 2: Worker
+   # Terminal 2: Worker (for running experiments)
    npm run dev:worker
 
    # Terminal 3: Frontend
    npm run dev:frontend
    ```
 
-7. **Open the dashboard**
+6. **Open the dashboard**
 
-   Navigate to http://localhost:3000
+   Navigate to http://localhost:3000/projects
 
-## Usage
+   You'll see the demo project "Customer Support Automation" with:
+   - 2 prompts with multiple versions
+   - 1 evaluation dataset with 6 test cases
+   - 2 experiments ready to run
+
+### Alternative: Full Docker Setup
+
+If you prefer to run everything in Docker:
+
+```bash
+# Copy environment file
+cp .env.example .env
+# Edit .env and add your OPENAI_API_KEY
+
+# Build and start all services
+npm run docker:build
+npm run docker:up
+
+# Run migrations (one-time)
+docker exec prompt-hub-backend npx prisma db push
+
+# Seed demo data (optional)
+docker exec prompt-hub-backend npm run db:seed
+
+# View logs
+npm run docker:logs
+```
+
+Services will be available at:
+- Backend API: http://localhost:3001
+- Health check: http://localhost:3001/health
+- Frontend: Run separately with `npm run dev:frontend`
+
+## Example Flow (Vertical Slice)
+
+This demonstrates the complete workflow from prompt creation to evaluation:
 
 ### 1. Create a Project
-
-Projects organize your prompts, datasets, and experiments.
 
 ```bash
 curl -X POST http://localhost:3001/api/projects \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "Customer Support Bot",
-    "description": "Automated customer support responses"
+    "name": "Email Assistant",
+    "description": "AI-powered email response generation"
   }'
 ```
 
 ### 2. Create a Prompt
 
-Prompts are templates with variable substitution using `{{variable}}` syntax.
-
 ```bash
 curl -X POST http://localhost:3001/api/prompts \
   -H "Content-Type: application/json" \
   -d '{
-    "projectId": "project-id",
-    "name": "Support Response Template",
-    "description": "Template for customer support responses"
+    "projectId": "<project-id>",
+    "name": "Professional Email Response",
+    "description": "Generates professional email responses"
   }'
 ```
 
-### 3. Add a Prompt Version
+### 3. Add Prompt Versions
 
+Version 1 (baseline):
 ```bash
-curl -X POST http://localhost:3001/api/prompts/{promptId}/versions \
+curl -X POST http://localhost:3001/api/prompts/<prompt-id>/versions \
   -H "Content-Type: application/json" \
   -d '{
     "versionTag": "v1.0",
-    "templateText": "You are a helpful customer support agent. Answer the following question:\n\n{{question}}\n\nProvide a clear and concise response."
+    "templateText": "Write a professional email response to: {{email}}"
   }'
 ```
 
-### 4. Create a Dataset
+Version 2 (improved):
+```bash
+curl -X POST http://localhost:3001/api/prompts/<prompt-id>/versions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "versionTag": "v2.0",
+    "templateText": "You are a professional email assistant. Write a clear, concise, and friendly response to:\n\n{{email}}\n\nResponse:"
+  }'
+```
+
+### 4. Create Evaluation Dataset
 
 ```bash
 curl -X POST http://localhost:3001/api/datasets \
   -H "Content-Type: application/json" \
   -d '{
-    "projectId": "project-id",
-    "name": "Support Questions",
-    "description": "Common customer support questions"
+    "projectId": "<project-id>",
+    "name": "Sample Emails",
+    "description": "Test cases for email responses"
   }'
 ```
 
-### 5. Upload Evaluation Items
+### 5. Upload Test Cases
 
 ```bash
-curl -X POST http://localhost:3001/api/datasets/{datasetId}/items \
+curl -X POST http://localhost:3001/api/datasets/<dataset-id>/items \
   -H "Content-Type: application/json" \
   -d '{
     "items": [
       {
-        "inputJson": "{\"question\": \"How do I reset my password?\"}",
-        "expectedOutputJson": "\"To reset your password, click on Forgot Password on the login page.\""
-      },
-      {
-        "inputJson": "{\"question\": \"What are your business hours?\"}",
-        "expectedOutputJson": "\"We are open Monday-Friday, 9 AM - 5 PM EST.\""
+        "inputJson": "{\"email\": \"Can we reschedule our meeting to next week?\"}",
+        "expectedOutputJson": "\"Of course! I am happy to reschedule. What day next week works best for you?\""
       }
     ]
   }'
 ```
 
-### 6. Create an Experiment
+### 6. Create Experiment
 
 ```bash
 curl -X POST http://localhost:3001/api/experiments \
   -H "Content-Type: application/json" \
   -d '{
-    "projectId": "project-id",
-    "name": "GPT-3.5 Baseline",
-    "description": "Baseline experiment with GPT-3.5",
-    "model": "gpt-3.5-turbo"
+    "projectId": "<project-id>",
+    "name": "GPT-4 Evaluation",
+    "model": "gpt-4"
   }'
 ```
 
-### 7. Run an Experiment
+### 7. Run Experiment
 
 ```bash
-curl -X POST http://localhost:3001/api/experiments/{experimentId}/runs \
+curl -X POST http://localhost:3001/api/experiments/<experiment-id>/runs \
   -H "Content-Type: application/json" \
   -d '{
-    "promptVersionId": "version-id",
-    "datasetId": "dataset-id"
+    "promptVersionId": "<version-id>",
+    "datasetId": "<dataset-id>"
   }'
 ```
 
-The worker will process the experiment in the background, running each evaluation item through the LLM and calculating scores.
+The worker will process this in the background, running each test case through OpenAI and calculating:
+- Exact match rate
+- String similarity scores
+- Optional LLM-as-judge scores
 
 ### 8. View Results
 
 ```bash
-curl http://localhost:3001/api/experiments/{experimentId}/runs/{runId}
+curl http://localhost:3001/api/experiments/<experiment-id>/runs/<run-id>
 ```
 
-## Integration Examples
+Or view in the dashboard at http://localhost:3000/projects/<project-id>/experiments
 
-### Integration with `agent-benchmark-lab`
+## Available Scripts
 
-The agent-benchmark-lab can use this hub as its prompt backbone for managing agent prompts and running benchmarks.
+### Root Level
+
+```bash
+npm run dev              # Start both backend and frontend
+npm run dev:backend      # Start backend only
+npm run dev:frontend     # Start frontend only
+npm run dev:worker       # Start background worker
+npm run build            # Build all workspaces
+npm run test             # Run tests
+npm run lint             # Lint all workspaces
+
+# Database
+npm run db:migrate       # Run migrations (dev)
+npm run db:push          # Push schema to DB
+npm run db:seed          # Seed demo data
+npm run db:generate      # Generate Prisma client
+
+# Docker
+npm run docker:up        # Start infrastructure
+npm run docker:down      # Stop infrastructure
+npm run docker:build     # Build Docker images
+npm run docker:logs      # View logs
+```
+
+### Backend (workspace)
+
+```bash
+cd backend
+npm run dev              # Dev server with hot reload
+npm run dev:worker       # Worker with hot reload
+npm run build            # Build TypeScript
+npm run start            # Start production server
+npm run test             # Run tests with Vitest
+npm run test:watch       # Run tests in watch mode
+npm run lint             # Type check
+```
+
+### Frontend (workspace)
+
+```bash
+cd frontend
+npm run dev              # Dev server
+npm run build            # Build for production
+npm run start            # Start production server
+npm run lint             # Next.js linting
+```
+
+## Integration with Other Projects
+
+This hub serves as the prompt backbone for multiple LLM-powered applications:
+
+### agent-benchmark-lab
 
 ```typescript
-// agent-benchmark-lab/src/prompts/client.ts
+// Fetch agent prompts from central hub
 import { promptsAPI } from 'prompt-hub-client';
 
-export async function getAgentPrompt(agentName: string, version: string) {
-  const prompts = await promptsAPI.list(process.env.PROJECT_ID);
-  const prompt = prompts.find(p => p.name === agentName);
+const agentPrompt = await promptsAPI.get(AGENT_PROMPT_ID);
+const latestVersion = agentPrompt.versions[0];
 
-  if (!prompt) {
-    throw new Error(`Prompt ${agentName} not found`);
-  }
+// Run benchmarks using experiment runs
+const benchmarkRun = await experimentsAPI.createRun(EXPERIMENT_ID, {
+  promptVersionId: latestVersion.id,
+  datasetId: BENCHMARK_DATASET_ID
+});
+```
 
-  const versions = await promptsAPI.getVersions(prompt.id);
-  const targetVersion = versions.find(v => v.versionTag === version);
+### sns-content-autopilot
 
-  return targetVersion.templateText;
-}
+```typescript
+// Test new content generation prompts before deployment
+const newVersion = await promptsAPI.createVersion(CONTENT_PROMPT_ID, {
+  versionTag: 'v2.5',
+  templateText: improvedPrompt
+});
 
-export async function runBenchmark(agentName: string, version: string) {
-  // Create experiment run
-  const run = await experimentsAPI.createRun(EXPERIMENT_ID, {
-    promptVersionId: versionId,
-    datasetId: BENCHMARK_DATASET_ID
-  });
+// A/B test against current version
+const results = await experimentsAPI.createRun(CONTENT_EXPERIMENT_ID, {
+  promptVersionId: newVersion.id,
+  datasetId: SAMPLE_TOPICS_DATASET_ID
+});
 
-  // Poll for results
-  // ...
+// Deploy if metrics improve
+if (results.metricsJson.avgSimilarity > 0.85) {
+  deployToProduction(newVersion.id);
 }
 ```
 
-### Integration with `sns-content-autopilot`
-
-The SNS content autopilot can manage its content generation prompts and test different variations.
+### cocoon-mental-platform
 
 ```typescript
-// sns-content-autopilot/src/generator.ts
-import { promptsAPI, experimentsAPI } from 'prompt-hub-client';
+// Ensure therapeutic prompts meet quality standards
+const safetyRun = await experimentsAPI.createRun(SAFETY_EXPERIMENT_ID, {
+  promptVersionId: therapeuticPromptVersion.id,
+  datasetId: SAFETY_SCENARIOS_DATASET_ID
+});
 
-export class ContentGenerator {
-  async generatePost(topic: string, platform: string) {
-    // Fetch latest prompt version from hub
-    const prompt = await this.getLatestPrompt('social-post-generator');
-
-    // Use prompt template
-    const content = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages: [{
-        role: 'user',
-        content: this.renderTemplate(prompt.templateText, { topic, platform })
-      }]
-    });
-
-    return content.choices[0].message.content;
-  }
-
-  async testNewPromptVersion(versionId: string) {
-    // Run A/B test using experiment hub
-    return await experimentsAPI.createRun(CONTENT_EXPERIMENT_ID, {
-      promptVersionId: versionId,
-      datasetId: SAMPLE_TOPICS_DATASET_ID
-    });
-  }
-}
-```
-
-### Integration with `cocoon-mental-platform`
-
-The mental health platform can use the hub to manage therapeutic conversation prompts and ensure quality.
-
-```typescript
-// cocoon-mental-platform/src/therapy/prompts.ts
-import { promptsAPI, datasetsAPI, experimentsAPI } from 'prompt-hub-client';
-
-export class TherapyPromptManager {
-  async getTherapistPrompt(scenario: string): Promise<string> {
-    const prompts = await promptsAPI.list(THERAPY_PROJECT_ID);
-    const scenarioPrompt = prompts.find(p => p.name === scenario);
-
-    // Always use the latest approved version
-    const versions = await promptsAPI.getVersions(scenarioPrompt.id);
-    return versions[0].templateText;
-  }
-
-  async validateNewPrompt(promptText: string): Promise<ValidationResult> {
-    // Create temporary version
-    const version = await promptsAPI.createVersion(PROMPT_ID, {
-      versionTag: `test-${Date.now()}`,
-      templateText: promptText
-    });
-
-    // Run against safety dataset
-    const run = await experimentsAPI.createRun(SAFETY_EXPERIMENT_ID, {
-      promptVersionId: version.id,
-      datasetId: SAFETY_DATASET_ID
-    });
-
-    // Wait for results and validate safety scores
-    const results = await this.waitForRunCompletion(run.id);
-    return this.analyzeSafety(results);
-  }
+// Require LLM judge approval before use
+const safetyScore = safetyRun.metricsJson.avgLLMScore;
+if (safetyScore < 90) {
+  throw new Error('Prompt does not meet safety standards');
 }
 ```
 
 ## API Reference
 
 ### Projects
-
 - `GET /api/projects` - List all projects
 - `POST /api/projects` - Create project
-- `GET /api/projects/:id` - Get project details
+- `GET /api/projects/:id` - Get project with related entities
 - `PATCH /api/projects/:id` - Update project
-- `DELETE /api/projects/:id` - Delete project
+- `DELETE /api/projects/:id` - Delete project (cascades)
 
 ### Prompts
-
-- `GET /api/prompts?projectId=:id` - List prompts
+- `GET /api/prompts?projectId=:id` - List prompts for project
 - `POST /api/prompts` - Create prompt
-- `GET /api/prompts/:id` - Get prompt details
+- `GET /api/prompts/:id` - Get prompt with versions
 - `PATCH /api/prompts/:id` - Update prompt
 - `DELETE /api/prompts/:id` - Delete prompt
-- `POST /api/prompts/:id/versions` - Create version
-- `GET /api/prompts/:id/versions` - List versions
+- `POST /api/prompts/:id/versions` - Create new version
+- `GET /api/prompts/:id/versions` - List all versions
 
 ### Datasets
-
 - `GET /api/datasets?projectId=:id` - List datasets
 - `POST /api/datasets` - Create dataset
-- `GET /api/datasets/:id` - Get dataset details
-- `PATCH /api/datasets/:id` - Update dataset
-- `DELETE /api/datasets/:id` - Delete dataset
-- `POST /api/datasets/:id/items` - Upload items
-- `GET /api/datasets/:id/items` - Get items
+- `GET /api/datasets/:id` - Get dataset with items (limit 100)
+- `POST /api/datasets/:id/items` - Bulk upload items
+- `GET /api/datasets/:id/items?limit=100&offset=0` - Paginate items
 
 ### Experiments
-
 - `GET /api/experiments?projectId=:id` - List experiments
 - `POST /api/experiments` - Create experiment
-- `GET /api/experiments/:id` - Get experiment details
-- `PATCH /api/experiments/:id` - Update experiment
-- `DELETE /api/experiments/:id` - Delete experiment
-- `POST /api/experiments/:id/runs` - Create run
-- `GET /api/experiments/:id/runs` - List runs
-- `GET /api/experiments/:id/runs/:runId` - Get run details
-- `GET /api/experiments/:id/runs/:runId/results` - Get run results
+- `GET /api/experiments/:id` - Get experiment with runs
+- `POST /api/experiments/:id/runs` - Create and enqueue run
+- `GET /api/experiments/:id/runs/:runId` - Get run details with metrics
+- `GET /api/experiments/:id/runs/:runId/results` - Get individual results
 
-## Database Schema
-
-```prisma
-model Project {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  prompts            Prompt[]
-  evaluationDatasets EvaluationDataset[]
-  experiments        Experiment[]
-}
-
-model Prompt {
-  id          String   @id @default(cuid())
-  projectId   String
-  name        String
-  description String?
-  versions    PromptVersion[]
-}
-
-model PromptVersion {
-  id           String   @id @default(cuid())
-  promptId     String
-  versionTag   String
-  templateText String   @db.Text
-  createdAt    DateTime @default(now())
-}
-
-model EvaluationDataset {
-  id          String   @id @default(cuid())
-  projectId   String
-  name        String
-  description String?
-  itemCount   Int      @default(0)
-  items       EvaluationItem[]
-}
-
-model EvaluationItem {
-  id                 String  @id @default(cuid())
-  datasetId          String
-  inputJson          String  @db.Text
-  expectedOutputJson String? @db.Text
-  tagsJson           String? @db.Text
-}
-
-model Experiment {
-  id          String   @id @default(cuid())
-  projectId   String
-  name        String
-  description String?
-  model       String
-  runs        ExperimentRun[]
-}
-
-model ExperimentRun {
-  id               String    @id @default(cuid())
-  experimentId     String
-  promptVersionId  String
-  datasetId        String
-  status           String    @default("pending")
-  startedAt        DateTime?
-  finishedAt       DateTime?
-  metricsJson      String?   @db.Text
-  resultItems      ExperimentResultItem[]
-}
-
-model ExperimentResultItem {
-  id               String  @id @default(cuid())
-  runId            String
-  evaluationItemId String
-  outputJson       String  @db.Text
-  scoreJson        String? @db.Text
-}
-```
-
-## Scoring Metrics
-
-### Automatic Metrics
-
-- **Exact Match**: Binary score for exact string match (case-insensitive)
-- **Similarity Score**: String similarity using Dice coefficient (0-1)
-
-### LLM-as-Judge (Optional)
-
-Enable LLM-based scoring for more nuanced evaluation:
-
-```typescript
-// backend/src/services/scoring-service.ts
-await scoreResult({
-  input,
-  output,
-  expectedOutput,
-  useLLMJudge: true  // Enable GPT-4 judge
-});
-```
-
-The LLM judge provides:
-- Numerical score (0-100)
-- Reasoning for the score
-
-## Development
-
-### Database Management
+## Testing
 
 ```bash
-# Create migration
-npm run db:migrate
+# Run all tests
+npm test
 
-# Generate Prisma client
-npm run db:generate
+# Run tests in watch mode
+cd backend && npm run test:watch
 
-# Open Prisma Studio
-cd backend && npm run db:studio
+# Run tests with coverage
+cd backend && npm run test -- --coverage
 ```
 
-### Testing
+Test coverage includes:
+- Template variable substitution
+- Similarity scoring algorithms
+- Exact match calculation
+- Metrics aggregation
+- Error handling (Zod validation, Prisma errors)
 
-```bash
-# Run backend tests
-cd backend && npm test
+## Future Extensions
 
-# Run frontend tests
-cd frontend && npm test
-```
+Short-term enhancements:
+- [ ] Authentication & multi-tenancy
+- [ ] Cost tracking per experiment run
+- [ ] Export results to CSV/JSON
+- [ ] Prompt template library (reusable components)
+- [ ] Webhook notifications for completed runs
+
+Medium-term features:
+- [ ] Support for additional LLM providers (Anthropic, Cohere)
+- [ ] Custom scoring functions (Python/JS snippets)
+- [ ] Scheduled experiment runs (cron-based)
+- [ ] Result visualization (charts, comparisons)
+- [ ] Collaborative features (comments, approval workflows)
+
+Long-term vision:
+- [ ] Prompt marketplace (share templates)
+- [ ] ML-powered prompt optimization
+- [ ] Integration with observability tools (LangSmith, Helicone)
+- [ ] Advanced versioning (git-like branching)
 
 ## Deployment
 
-### Docker Deployment
+### Production Checklist
 
-Build and deploy the entire stack:
+1. Set environment variables:
+   ```bash
+   DATABASE_URL=postgresql://...
+   REDIS_HOST=your-redis-host
+   OPENAI_API_KEY=sk-...
+   NODE_ENV=production
+   ```
 
+2. Build Docker images:
+   ```bash
+   docker build -t prompt-hub-backend ./backend
+   docker build -t prompt-hub-frontend ./frontend
+   ```
+
+3. Run migrations:
+   ```bash
+   npx prisma migrate deploy
+   ```
+
+4. Start services:
+   ```bash
+   docker-compose up -d
+   ```
+
+### Environment Variables
+
+**Required:**
+- `OPENAI_API_KEY` - OpenAI API key for running experiments
+
+**Backend:**
+- `DATABASE_URL` - PostgreSQL connection string
+- `REDIS_HOST` - Redis host (default: localhost)
+- `REDIS_PORT` - Redis port (default: 6379)
+- `PORT` - Backend port (default: 3001)
+- `CORS_ORIGIN` - Allowed CORS origin (default: http://localhost:3000)
+- `NODE_ENV` - Environment (development/production)
+
+**Frontend:**
+- `NEXT_PUBLIC_API_URL` - Backend API URL (default: http://localhost:3001)
+
+## Troubleshooting
+
+**Database connection fails:**
 ```bash
-# Build images
-docker build -t prompt-hub-backend ./backend
-docker build -t prompt-hub-frontend ./frontend
+# Ensure PostgreSQL is running
+docker ps | grep postgres
 
-# Run with docker-compose
-docker-compose up -d
+# Check connection string
+cat backend/.env | grep DATABASE_URL
 ```
 
-### Environment Variables (Production)
+**Experiments not running:**
+```bash
+# Check worker is running
+ps aux | grep experiment-worker
 
-```env
-# Backend
-DATABASE_URL=postgresql://user:pass@host:5432/db
-REDIS_HOST=redis-host
-REDIS_PORT=6379
-OPENAI_API_KEY=sk-...
-PORT=3001
-CORS_ORIGIN=https://your-frontend.com
+# Check Redis connection
+redis-cli ping
 
-# Frontend
-NEXT_PUBLIC_API_URL=https://your-api.com
+# View worker logs
+npm run docker:logs
 ```
 
-## Contributing
+**Frontend can't connect to API:**
+```bash
+# Verify NEXT_PUBLIC_API_URL
+cat frontend/.env.local
 
-Contributions are welcome! Please read the contributing guidelines before submitting PRs.
+# Check CORS settings in backend
+curl -I http://localhost:3001/health
+```
+
+**Tests failing:**
+```bash
+# Ensure dependencies are installed
+npm install
+
+# Run tests in verbose mode
+cd backend && npm run test -- --reporter=verbose
+```
 
 ## License
 
 MIT
 
-## Support
+## Contributing
 
-For issues and questions:
-- GitHub Issues: [Create an issue](https://github.com/your-org/prompt-library-experiment-hub/issues)
-- Documentation: [View docs](https://docs.your-org.com)
+Contributions welcome! Please:
+1. Fork the repository
+2. Create a feature branch
+3. Add tests for new functionality
+4. Ensure all tests pass (`npm test`)
+5. Submit a pull request
+
+For major changes, please open an issue first to discuss the proposed changes.

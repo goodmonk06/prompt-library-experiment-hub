@@ -17,6 +17,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - prompt-hub-network
 
   redis:
     image: redis:7-alpine
@@ -30,7 +32,56 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - prompt-hub-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: prompt-hub-backend
+    environment:
+      DATABASE_URL: "postgresql://promptuser:promptpass@postgres:5432/prompthub?schema=public"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      PORT: 3001
+      NODE_ENV: production
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - prompt-hub-network
+    command: sh -c "npx prisma migrate deploy && npm start"
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: prompt-hub-worker
+    environment:
+      DATABASE_URL: "postgresql://promptuser:promptpass@postgres:5432/prompthub?schema=public"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      NODE_ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - prompt-hub-network
+    command: node dist/workers/experiment-worker.js
 
 volumes:
   postgres_data:
   redis_data:
+
+networks:
+  prompt-hub-network:
+    driver: bridge
